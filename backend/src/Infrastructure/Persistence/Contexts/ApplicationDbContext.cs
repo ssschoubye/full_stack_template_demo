@@ -24,7 +24,7 @@ namespace Infrastructure.Persistence.Contexts
         {
             base.OnModelCreating(modelBuilder);
             
-            // Configure relationships
+            // Relationship Configuration
             modelBuilder.Entity<Doctor>()
                 .HasOne(d => d.DoctorType)
                 .WithMany(dt => dt.Doctors)
