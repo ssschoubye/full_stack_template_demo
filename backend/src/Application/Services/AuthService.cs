@@ -1,13 +1,11 @@
 using Application.Interfaces;
-using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Core.Entities;
-using Core.Interfaces;
+using Application.DTOs;
 
 public class AuthService : IAuthService
 {
@@ -49,7 +47,8 @@ public class AuthService : IAuthService
         // Implement JWT token generation
         // You'll need Microsoft.IdentityModel.Tokens and System.IdentityModel.Tokens.Jwt packages
         
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+        var jwtKey = _configuration["Jwt:Key"] ?? throw new ArgumentNullException("Jwt:Key configuration is missing");
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
@@ -65,5 +64,28 @@ public class AuthService : IAuthService
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public async Task<AuthResultDto> RegisterAsync(CreateUserDto createUserDto)
+    {
+        // Implement user registration logic
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(createUserDto.PasswordHash);
+
+        var user = new User
+        {
+            Username = createUserDto.Username,
+            PasswordHash = passwordHash
+        };
+
+        await _userRepository.AddAsync(user);
+
+        // Generate JWT token
+        var token = GenerateJwtToken(user);
+
+        return new AuthResultDto
+        {
+            Token = token,
+            Username = user.Username
+        };
     }
 }

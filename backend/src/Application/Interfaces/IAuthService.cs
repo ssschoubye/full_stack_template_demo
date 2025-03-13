@@ -1,4 +1,4 @@
-
+using Application.DTOs;
 
 namespace Application.Interfaces
 {
@@ -17,5 +17,6 @@ namespace Application.Interfaces
     public interface IAuthService
     {
         Task<AuthResultDto> LoginAsync(LoginDto loginDto);
+        Task<AuthResultDto> RegisterAsync(CreateUserDto createUserDto);
     }
 }

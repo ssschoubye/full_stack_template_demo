@@ -1,4 +1,12 @@
 using Infrastructure.Repositories;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Application.Interfaces;
+using Application.Services;
+using Infrastructure.Persistence.Contexts;
+using Microsoft.EntityFrameworkCore;
+using Core.Entities;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +17,12 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrEmpty(jwtKey))
+{
+    throw new ArgumentNullException(nameof(jwtKey), "JWT Key cannot be null or empty.");
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -21,15 +35,32 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 
 builder.Services.AddAuthorization();
 
+// Database PostgreSQL
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
+
 //Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddS
+builder.Services.AddScoped<IShiftTypeRepository, ShiftTypeRepository>();
+builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
+builder.Services.AddScoped<IDoctorTypeRepository, DoctorTypeRepository>();
+
+//Services
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IShiftTypeService, ShiftTypeService>();
+builder.Services.AddScoped<IDoctorService, DoctorService>();
+builder.Services.AddScoped<IDoctorTypeService, DoctorTypeService>();
+
+//Controller
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -42,25 +73,40 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+// Enabling middleware 
+app.UseAuthentication();
+app.UseAuthorization();
 
-app.MapGet("/weatherforecast", () =>
+app.MapControllers();
+
+if (app.Environment.IsDevelopment())
 {
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+    // Create a scope to get the services
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        var userRepository = services.GetRequiredService<IUserRepository>();
+        
+        // Check if test user exists
+        var testUser = await userRepository.GetByUsernameAsync("testuser");
+        
+        if (testUser == null)
+        {
+            var user = new User
+            {
+                Username = "testuser",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Test@123")
+            };
+            
+            await userRepository.AddAsync(user);
+            Console.WriteLine("Test user created successfully.");
+        }
+        else
+        {
+            Console.WriteLine("Test user already exists.");
+        }
+    }
+}
 
 app.Run();
 
