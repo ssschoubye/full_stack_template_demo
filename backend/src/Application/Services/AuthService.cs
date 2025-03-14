@@ -37,15 +37,14 @@ public class AuthService : IAuthService
 
     private bool VerifyPassword(string password, string passwordHash)
     {
-        // Implement password verification logic (e.g., using BCrypt)
+        // Implement password verification logic
         // For demo purposes only:
         return BCrypt.Net.BCrypt.Verify(password, passwordHash);
     }
 
     private string GenerateJwtToken(User user)
     {
-        // Implement JWT token generation
-        // You'll need Microsoft.IdentityModel.Tokens and System.IdentityModel.Tokens.Jwt packages
+        // Implement JWT token generation logic
         
         var jwtKey = _configuration["Jwt:Key"] ?? throw new ArgumentNullException("Jwt:Key configuration is missing");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
